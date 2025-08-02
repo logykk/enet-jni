@@ -5,7 +5,55 @@ package logykk.enet;
  */
 public class ENetLibrary {
     static {
-        System.loadLibrary("enet-jni");
+        try {
+            String osName = System.getProperty("os.name").toLowerCase();
+            String osArch = System.getProperty("os.arch").toLowerCase();
+            String nativePath;
+            String libName;
+
+            boolean isArm64 = osArch.equals("aarch64") || osArch.contains("arm64");
+            String archSuffix = isArm64 ? "arm64" : "x86-64";
+            
+            if (osName.contains("win")) {
+                nativePath = "/natives/windows-" + archSuffix + "/";
+                libName = "enet-jni.dll";
+            } else if (osName.contains("mac") || osName.contains("darwin")) {
+                nativePath = "/natives/macos-" + archSuffix + "/";
+                libName = "libenet-jni.dylib";
+            } else {
+                nativePath = "/natives/linux-" + archSuffix + "/";
+                libName = "libenet-jni.so";
+            }
+
+            try {
+                System.loadLibrary("enet-jni");
+            } catch (UnsatisfiedLinkError e) {
+                loadFromResource(nativePath + libName);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load native library", e);
+        }
+    }
+    
+    private static void loadFromResource(String resourcePath) throws Exception {
+        java.io.InputStream is = ENetLibrary.class.getResourceAsStream(resourcePath);
+        if (is == null) {
+            throw new RuntimeException("Native library not found: " + resourcePath);
+        }
+
+        String fileName = resourcePath.substring(resourcePath.lastIndexOf('/') + 1);
+        java.io.File tempFile = java.io.File.createTempFile("enet-jni-", fileName);
+        tempFile.deleteOnExit();
+
+        try (java.io.FileOutputStream os = new java.io.FileOutputStream(tempFile)) {
+            byte[] buffer = new byte[1024];
+            int readBytes;
+            while ((readBytes = is.read(buffer)) != -1) {
+                os.write(buffer, 0, readBytes);
+            }
+        }
+
+        System.load(tempFile.getAbsolutePath());
     }
     
     // Version constants

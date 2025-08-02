@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'c'
+    id 'maven-publish'
 }
 
 group = 'logykk.enet'
@@ -15,7 +16,9 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
-// Configure the C plugin
+def buildArch = project.hasProperty('buildArch') ? project.property('buildArch') : System.getProperty("os.arch").toLowerCase()
+def isArm64 = buildArch == 'arm64' || buildArch == 'aarch64'
+
 model {
     components {
         'enet-jni'(NativeLibrarySpec) {
@@ -36,33 +39,60 @@ model {
                     cCompiler.args "/I${org.gradle.internal.jvm.Jvm.current().javaHome}/include"
                     cCompiler.args "/I${org.gradle.internal.jvm.Jvm.current().javaHome}/include/win32"
                     linker.args "ws2_32.lib", "winmm.lib"
+
+                    if (isArm64) {
+                        cCompiler.args "/D_ARM64_"
+                    }
                 } else if (targetPlatform.operatingSystem.macOsX) {
                     cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include"
                     cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include/darwin"
+
+                    if (isArm64) {
+                        cCompiler.args "-arch", "arm64"
+                        linker.args "-arch", "arm64"
+                    }
                 } else {
                     cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include"
                     cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include/linux"
+
+                    if (isArm64) {
+                        cCompiler.args "-march=armv8-a"
+                    }
                 }
             }
         }
     }
 }
 
-// Task to extract the native library to a temporary directory
 tasks.register('extractNativeLib') {
     dependsOn 'enet-jniSharedLibrary'
 
     doLast {
-        // Create the directory if it doesn't exist
         def nativeLibDir = file("${buildDir}/native-libs")
         nativeLibDir.mkdirs()
 
-        // Copy the native library to the temporary directory
+        def platformDir
+        def targetFileName
+        def archSuffix = isArm64 ? "arm64" : "x86-64"
+        
+        if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+            platformDir = "natives/windows-${archSuffix}"
+            targetFileName = 'enet-jni.dll'
+        } else if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+            platformDir = "natives/macos-${archSuffix}"
+            targetFileName = 'libenet-jni.dylib'
+        } else {
+            platformDir = "natives/linux-${archSuffix}"
+            targetFileName = 'libenet-jni.so'
+        }
+
+        def platformResourceDir = file("src/main/resources/${platformDir}")
+        platformResourceDir.mkdirs()
+
         copy {
             from 'build/libs/enet-jni/shared'
             into nativeLibDir
 
-            // Rename the library to match the name used in System.loadLibrary
             rename { String fileName ->
                 if (fileName.endsWith('.dll')) {
                     return 'enet-jni.dll'
@@ -75,34 +105,49 @@ tasks.register('extractNativeLib') {
             }
         }
 
-        // Also copy to src/main/resources for packaging in the JAR
         copy {
             from nativeLibDir
-            into 'src/main/resources'
+            into platformResourceDir
         }
     }
 }
 
-// Make sure processResources depends on extractNativeLib
 processResources.dependsOn extractNativeLib
 
-// Configure test task to use the native library
 test {
     dependsOn extractNativeLib
     
     useJUnitPlatform()
-    
-    // Set java.library.path to include the directory with our native library
+
     systemProperty 'java.library.path', file("${buildDir}/native-libs").absolutePath
-    
-    // Force JVM to use the new library path
     jvmArgs '-Djava.library.path=' + file("${buildDir}/native-libs").absolutePath
-    
-    // Make sure the test can find the native library
+
     doFirst {
         println "Java library path for tests: " + file("${buildDir}/native-libs").absolutePath
     }
 }
 
-// Make sure compileTestJava depends on extractNativeLib
 compileTestJava.dependsOn extractNativeLib
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = project.group
+            artifactId = 'enet-jni'
+            version = project.version
+
+            from components.java
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/${System.getenv("GITHUB_REPOSITORY") ?: "logykk/enet-jni"}")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user") ?: System.getProperty("user.name")
+                password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.key") ?: ""
+            }
+        }
+    }
+}
