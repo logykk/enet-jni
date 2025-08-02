@@ -23,7 +23,7 @@ jobs:
         run: ./gradlew enet-jniSharedLibrary
         
       - name: Upload Linux x86-64 library
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-x86-64-libs
           path: build/libs/enet-jni/shared/libenet-jni.so
@@ -51,7 +51,7 @@ jobs:
           "
         
       - name: Upload Linux ARM64 library
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-arm64-libs
           path: build/libs/enet-jni/shared/libenet-jni.so
@@ -71,7 +71,7 @@ jobs:
         run: ./gradlew enet-jniSharedLibrary
         
       - name: Upload Windows x86-64 library
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-x86-64-libs
           path: build/libs/enet-jni/shared/enet-jni.dll
@@ -104,7 +104,7 @@ jobs:
           ./gradlew enet-jniSharedLibrary -PbuildArch=arm64
         
       - name: Upload Windows ARM64 library
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-arm64-libs
           path: build/libs/enet-jni/shared/enet-jni.dll
@@ -124,7 +124,7 @@ jobs:
         run: ./gradlew enet-jniSharedLibrary
         
       - name: Upload macOS x86-64 library
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos-x86-64-libs
           path: build/libs/enet-jni/shared/libenet-jni.dylib
@@ -148,7 +148,7 @@ jobs:
           ./gradlew enet-jniSharedLibrary -PbuildArch=arm64
         
       - name: Upload macOS ARM64 library
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos-arm64-libs
           path: build/libs/enet-jni/shared/libenet-jni.dylib
@@ -185,38 +185,38 @@ jobs:
           
       # Download x86-64 libraries
       - name: Download Linux x86-64 library
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-x86-64-libs
           path: src/main/resources/natives/linux-x86-64
           
       - name: Download Windows x86-64 library
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: windows-x86-64-libs
           path: src/main/resources/natives/windows-x86-64
           
       - name: Download macOS x86-64 library
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: macos-x86-64-libs
           path: src/main/resources/natives/macos-x86-64
           
       # Download arm64 libraries
       - name: Download Linux arm64 library
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-arm64-libs
           path: src/main/resources/natives/linux-arm64
           
       - name: Download Windows arm64 library
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: windows-arm64-libs
           path: src/main/resources/natives/windows-arm64
           
       - name: Download macOS arm64 library
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: macos-arm64-libs
           path: src/main/resources/natives/macos-arm64
@@ -225,7 +225,7 @@ jobs:
         run: ./gradlew build
         
       - name: Upload JAR with all native libraries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: enet-jni-all-platforms
           path: build/libs/*.jar
