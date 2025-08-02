@@ -1,0 +1,108 @@
+plugins {
+    id 'java'
+    id 'c'
+}
+
+group = 'logykk.enet'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+// Configure the C plugin
+model {
+    components {
+        'enet-jni'(NativeLibrarySpec) {
+            sources {
+                c {
+                    source {
+                        srcDir "src/main/c"
+                        include "**/*.c"
+                    }
+                    exportedHeaders {
+                        srcDir "src/main/c"
+                    }
+                }
+            }
+            
+            binaries.all {
+                if (targetPlatform.operatingSystem.windows) {
+                    cCompiler.args "/I${org.gradle.internal.jvm.Jvm.current().javaHome}/include"
+                    cCompiler.args "/I${org.gradle.internal.jvm.Jvm.current().javaHome}/include/win32"
+                    linker.args "ws2_32.lib", "winmm.lib"
+                } else if (targetPlatform.operatingSystem.macOsX) {
+                    cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include"
+                    cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include/darwin"
+                } else {
+                    cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include"
+                    cCompiler.args "-I${org.gradle.internal.jvm.Jvm.current().javaHome}/include/linux"
+                }
+            }
+        }
+    }
+}
+
+// Task to extract the native library to a temporary directory
+tasks.register('extractNativeLib') {
+    dependsOn 'enet-jniSharedLibrary'
+
+    doLast {
+        // Create the directory if it doesn't exist
+        def nativeLibDir = file("${buildDir}/native-libs")
+        nativeLibDir.mkdirs()
+
+        // Copy the native library to the temporary directory
+        copy {
+            from 'build/libs/enet-jni/shared'
+            into nativeLibDir
+
+            // Rename the library to match the name used in System.loadLibrary
+            rename { String fileName ->
+                if (fileName.endsWith('.dll')) {
+                    return 'enet-jni.dll'
+                } else if (fileName.endsWith('.so')) {
+                    return 'libenet-jni.so'
+                } else if (fileName.endsWith('.dylib')) {
+                    return 'libenet-jni.dylib'
+                }
+                return fileName
+            }
+        }
+
+        // Also copy to src/main/resources for packaging in the JAR
+        copy {
+            from nativeLibDir
+            into 'src/main/resources'
+        }
+    }
+}
+
+// Make sure processResources depends on extractNativeLib
+processResources.dependsOn extractNativeLib
+
+// Configure test task to use the native library
+test {
+    dependsOn extractNativeLib
+    
+    useJUnitPlatform()
+    
+    // Set java.library.path to include the directory with our native library
+    systemProperty 'java.library.path', file("${buildDir}/native-libs").absolutePath
+    
+    // Force JVM to use the new library path
+    jvmArgs '-Djava.library.path=' + file("${buildDir}/native-libs").absolutePath
+    
+    // Make sure the test can find the native library
+    doFirst {
+        println "Java library path for tests: " + file("${buildDir}/native-libs").absolutePath
+    }
+}
+
+// Make sure compileTestJava depends on extractNativeLib
+compileTestJava.dependsOn extractNativeLib
