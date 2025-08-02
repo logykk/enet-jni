@@ -129,6 +129,10 @@ test {
 
 compileTestJava.dependsOn extractNativeLib
 
+java {
+    withSourcesJar()
+}
+
 publishing {
     publications {
         maven(MavenPublication) {
